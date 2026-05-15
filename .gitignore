@@ -1,0 +1,25 @@
+# Dependências
+node_modules/
+.npm/
+
+# Ambiente
+.env
+.env.local
+.env.production
+
+# Netlify
+.netlify/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# Build
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
