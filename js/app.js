@@ -298,18 +298,18 @@ const OA = (() => {
     return `
     <div class="product-card" id="pc-${p.id}">
       <div class="product-img">
-        <span style="font-size:64px">${p.emoji}</span>
+        <span style="font-size:64px">${p.emoji||'📦'}</span>
         ${p.badge ? `<div class="product-badge ${p.badge==='Novo'?'new':''}">${p.badge}</div>` : ''}
       </div>
       <div class="product-body">
         <div class="product-category">${p.category === 'site' ? '🌐 Site' : '📊 Excel'}</div>
-        <div class="product-name">${p.name}</div>
-        <div class="product-desc">${p.desc}</div>
-        <ul style="list-style:none;margin-bottom:16px;">${p.features.slice(0,3).map(f=>`<li style="font-size:12px;color:var(--gray2);padding:3px 0;"><span style="color:var(--blue-light);margin-right:6px;">✓</span>${f}</li>`).join('')}</ul>
+        <div class="product-name">${p.name||''}</div>
+        <div class="product-desc">${p.desc||p.description||''}</div>
+        <ul style="list-style:none;margin-bottom:16px;">${(Array.isArray(p.features)?p.features:[]).slice(0,3).map(f=>`<li style="font-size:12px;color:var(--gray2);padding:3px 0;"><span style="color:var(--blue-light);margin-right:6px;">✓</span>${f}</li>`).join('')}</ul>
         <div class="product-footer">
           <div class="product-price">
-            ${p.oldPrice ? `<div class="from">R$ ${p.oldPrice.toFixed(2)}</div>` : ''}
-            R$ ${p.price.toFixed(2)}
+            ${p.oldPrice ? `<div class="from">R$ ${(parseFloat(p.oldPrice)||0).toFixed(2)}</div>` : ''}
+            R$ ${(parseFloat(p.price)||0).toFixed(2)}
             <small>pagamento único</small>
           </div>
           <button class="btn-buy" onclick="OA.openProduct('${p.id}')">Ver detalhes</button>
@@ -322,43 +322,67 @@ const OA = (() => {
      PRODUCT DETAIL MODAL
   ═══════════════════════════════════════════════ */
   function openProduct(id) {
-    const p = state.products.find(x => x.id === id);
-    if (!p) return;
-    showModal(`
-      <div class="modal-header">
-        <div>
-          <div style="font-size:11px;color:var(--blue-light);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">${p.category === 'site' ? '🌐 Site' : '📊 Excel'}</div>
-          <div class="modal-title">${p.name}</div>
-        </div>
-        <button class="modal-close" onclick="OA.closeModal()">✕</button>
-      </div>
-      <div class="modal-body">
-        <div style="font-size:64px;text-align:center;padding:20px 0;background:rgba(255,255,255,0.03);border-radius:12px;margin-bottom:20px;">${p.emoji}</div>
-        <p style="font-size:14px;color:var(--gray2);line-height:1.7;margin-bottom:20px;">${p.desc}</p>
-        <div style="margin-bottom:20px;">
-          <div style="font-size:12px;font-weight:700;color:var(--gray2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">O que está incluso</div>
-          ${p.features.map(f=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--blue-light)">✓</span>${f}</div>`).join('')}
-        </div>
-        <div style="margin-bottom:20px;">
-          <div style="font-size:12px;font-weight:700;color:var(--gray2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Arquivos inclusos</div>
-          ${p.files.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;font-size:13px;"><span>📄 ${f.name}</span><span style="color:var(--gray2)">${f.size}</span></div>`).join('')}
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.2);border-radius:12px;margin-bottom:20px;">
+    try {
+      const p = state.products.find(x => x.id === id);
+      if (!p) { toast('Produto não encontrado.', 'error'); return; }
+
+      // Garantir que features e files sejam arrays válidos
+      const features = Array.isArray(p.features) ? p.features : (typeof p.features === 'string' ? p.features.split('\n').filter(Boolean) : []);
+      const files = Array.isArray(p.files) ? p.files : [];
+      const price = parseFloat(p.price) || 0;
+      const oldPrice = parseFloat(p.oldPrice) || 0;
+      const emoji = p.emoji || '📦';
+      const name = p.name || 'Produto';
+      const desc = p.desc || p.description || '';
+      const cat = p.category === 'site' ? '🌐 Site' : '📊 Excel';
+
+      const featuresHTML = features.length
+        ? features.map(f => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;"><span style="color:var(--blue-light)">✓</span>${f}</div>`).join('')
+        : '<div style="font-size:13px;color:var(--gray2);padding:8px 0;">Consulte a descrição do produto.</div>';
+
+      const filesHTML = files.length
+        ? files.map(f => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:8px;margin-bottom:6px;font-size:13px;"><span>📄 ${f.name||f}</span><span style="color:var(--gray2)">${f.size||''}</span></div>`).join('')
+        : '<div style="font-size:13px;color:var(--gray2);padding:8px 0;">Arquivos disponíveis após a compra.</div>';
+
+      showModal(`
+        <div class="modal-header">
           <div>
-            ${p.oldPrice ? `<div style="font-size:13px;color:var(--gray);text-decoration:line-through;">R$ ${p.oldPrice.toFixed(2)}</div>` : ''}
-            <div style="font-size:32px;font-weight:800;">R$ ${p.price.toFixed(2)}</div>
-            <div style="font-size:12px;color:var(--gray2)">pagamento único</div>
+            <div style="font-size:11px;color:var(--blue-light);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">${cat}</div>
+            <div class="modal-title">${name}</div>
           </div>
-          <div style="text-align:center;">
-            <div style="font-size:11px;color:var(--gray2)">ou</div>
-            <div style="font-size:18px;font-weight:700;color:var(--orange)">3x R$ ${(p.price/3).toFixed(2)}</div>
-            <div style="font-size:11px;color:var(--gray2)">sem juros</div>
-          </div>
+          <button class="modal-close" onclick="OA.closeModal()">✕</button>
         </div>
-        <button class="btn-orange btn-block" onclick="OA.addToCartAndBuy('${p.id}')">🛒 Comprar agora</button>
-        <button class="btn-ghost btn-block" style="margin-top:10px;" onclick="OA.addToCart('${p.id}');OA.closeModal();OA.toast('Adicionado ao carrinho!','success');">Adicionar ao carrinho</button>
-      </div>
-    `);
+        <div class="modal-body">
+          <div style="font-size:64px;text-align:center;padding:20px 0;background:rgba(255,255,255,0.03);border-radius:12px;margin-bottom:20px;">${emoji}</div>
+          <p style="font-size:14px;color:var(--gray2);line-height:1.7;margin-bottom:20px;">${desc}</p>
+          <div style="margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:700;color:var(--gray2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">O que está incluso</div>
+            ${featuresHTML}
+          </div>
+          <div style="margin-bottom:20px;">
+            <div style="font-size:12px;font-weight:700;color:var(--gray2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;">Arquivos inclusos</div>
+            ${filesHTML}
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:rgba(21,101,192,0.08);border:1px solid rgba(21,101,192,0.2);border-radius:12px;margin-bottom:20px;">
+            <div>
+              ${oldPrice > 0 ? `<div style="font-size:13px;color:var(--gray);text-decoration:line-through;">R$ ${oldPrice.toFixed(2)}</div>` : ''}
+              <div style="font-size:32px;font-weight:800;">R$ ${price.toFixed(2)}</div>
+              <div style="font-size:12px;color:var(--gray2)">pagamento único</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:11px;color:var(--gray2)">ou</div>
+              <div style="font-size:18px;font-weight:700;color:var(--orange)">3x R$ ${(price/3).toFixed(2)}</div>
+              <div style="font-size:11px;color:var(--gray2)">sem juros</div>
+            </div>
+          </div>
+          <button class="btn-orange btn-block" onclick="OA.addToCartAndBuy('${p.id}')">🛒 Comprar agora</button>
+          <button class="btn-ghost btn-block" style="margin-top:10px;" onclick="OA.addToCart('${p.id}');OA.closeModal();OA.toast('Adicionado ao carrinho!','success');">Adicionar ao carrinho</button>
+        </div>
+      `);
+    } catch(err) {
+      console.error('openProduct error:', err);
+      toast('Erro ao abrir produto. Tente novamente.', 'error');
+    }
   }
 
   /* ═══════════════════════════════════════════════
@@ -757,7 +781,7 @@ const OA = (() => {
             <div class="download-icon">${p.emoji}</div>
             <div class="download-info">
               <div class="download-name">${p.name}</div>
-              <div class="download-desc">${p.desc}</div>
+              <div class="download-desc">${p.desc||p.description||''}</div>
               <div class="download-meta">
                 ${p.files.map(f => `<span>📄 ${f.name} (${f.size})</span>`).join(' · ')}
               </div>
@@ -836,9 +860,9 @@ const OA = (() => {
             <thead><tr><th>Produto</th><th>Categoria</th><th>Preço</th><th>Status</th><th>Ações</th></tr></thead>
             <tbody>
               ${state.products.map(p => `<tr>
-                <td><span style="font-size:20px;margin-right:8px">${p.emoji}</span>${p.name}</td>
+                <td><span style="font-size:20px;margin-right:8px">${p.emoji||'📦'}</span>${p.name}</td>
                 <td><span class="badge badge-blue">${p.category}</span></td>
-                <td style="font-weight:700;color:var(--orange)">R$ ${p.price.toFixed(2)}</td>
+                <td style="font-weight:700;color:var(--orange)">R$ ${(parseFloat(p.price)||0).toFixed(2)}</td>
                 <td><span class="badge ${p.active ? 'badge-green' : 'badge-gray'}">${p.active ? 'Ativo' : 'Inativo'}</span></td>
                 <td>
                   <button onclick="OA.toggleProduct('${p.id}')" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--white);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;margin-right:6px;">${p.active ? 'Desativar' : 'Ativar'}</button>
