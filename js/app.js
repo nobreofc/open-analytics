@@ -400,8 +400,8 @@ const OA = (() => {
 
   function addToCartAndBuy(id) {
     addToCart(id);
-    closeModal();
-    setTimeout(() => openCheckout(), 200);
+    // Abre checkout diretamente no mesmo modal — sem piscar
+    openCheckoutInModal();
   }
 
   function openCart() {
@@ -422,7 +422,7 @@ const OA = (() => {
         <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:700;padding:16px 0;">
           <span>Total</span><span style="color:var(--orange)">R$ ${total.toFixed(2)}</span>
         </div>
-        <button class="btn-orange btn-block" onclick="OA.closeModal();setTimeout(()=>OA.openCheckout(),200)">Finalizar compra</button>
+        <button class="btn-orange btn-block" onclick="OA.openCheckoutInModal()">🛒 Finalizar compra</button>
       </div>
     `);
   }
@@ -437,89 +437,144 @@ const OA = (() => {
   /* ═══════════════════════════════════════════════
      CHECKOUT / PAYMENT
   ═══════════════════════════════════════════════ */
-  function openCheckout() {
-    if (!state.user) { toast('Faça login para continuar.', 'info'); openLogin(); return; }
-    if (!state.cart.length) { toast('Carrinho vazio.', 'info'); return; }
-    const total = state.cart.reduce((s, i) => s + i.price, 0);
-    const pixKey = 'openanalytics@financeiro.com.br';
-    const boletoCode = `0001.23456 7890.12345 67890.12345 6 00010000${Math.round(total * 100).toString().padStart(8, '0')}`;
-
-    showModal(`
-      <div class="modal-header">
-        <div class="modal-title">💳 Pagamento</div>
-        <button class="modal-close" onclick="OA.closeModal()">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="order-summary">
-          ${state.cart.map(i => `<div class="order-row"><span>${i.emoji} ${i.name}</span><span>R$ ${i.price.toFixed(2)}</span></div>`).join('')}
-          <div class="order-row total"><span>Total</span><span class="price">R$ ${total.toFixed(2)}</span></div>
-        </div>
-        <div class="payment-tabs" id="pay-tabs">
-          <button class="pay-tab active" onclick="OA.switchPayTab(this,'card')">💳 Cartão</button>
-          <button class="pay-tab" onclick="OA.switchPayTab(this,'pix')">⚡ Pix</button>
-          <button class="pay-tab" onclick="OA.switchPayTab(this,'boleto')">🏦 Boleto</button>
-        </div>
-
-        <div id="pay-card">
-          <div class="form-group">
-            <label class="form-label">Número do cartão</label>
-            <input class="form-input" id="cc-num" placeholder="0000 0000 0000 0000" maxlength="19" oninput="OA.fmtCC(this)">
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Validade</label>
-              <input class="form-input" id="cc-exp" placeholder="MM/AA" maxlength="5" oninput="OA.fmtExp(this)">
-            </div>
-            <div class="form-group">
-              <label class="form-label">CVV</label>
-              <input class="form-input" id="cc-cvv" placeholder="000" maxlength="4" type="password">
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nome no cartão</label>
-            <input class="form-input" id="cc-name" placeholder="NOME SOBRENOME" style="text-transform:uppercase">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Parcelamento</label>
-            <select class="form-input" id="cc-parc">
-              <option>1x R$ ${total.toFixed(2)} (à vista)</option>
-              <option>2x R$ ${(total/2).toFixed(2)} sem juros</option>
-              <option>3x R$ ${(total/3).toFixed(2)} sem juros</option>
-            </select>
-          </div>
-          <button class="btn-orange btn-block" id="pay-btn" onclick="OA.processPayment('card')">🔒 Pagar R$ ${total.toFixed(2)}</button>
-        </div>
-
-        <div id="pay-pix" class="hidden">
-          <div class="pix-area">
-            <div class="pix-qr">⚡</div>
-            <div style="font-size:13px;color:var(--gray2);margin-bottom:8px;">Escaneie o QR Code ou copie a chave Pix abaixo</div>
-            <div class="pix-key">${pixKey}</div>
-            <button onclick="navigator.clipboard.writeText('${pixKey}');OA.toast('Chave copiada!','success')" class="btn-ghost" style="width:100%;margin-top:8px;">📋 Copiar chave Pix</button>
-            <div style="margin-top:16px;font-size:12px;color:var(--gray);">Valor: <strong style="color:var(--orange)">R$ ${total.toFixed(2)}</strong></div>
-          </div>
-          <div style="margin-top:16px;padding:12px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:10px;font-size:13px;color:#ffc107;">
-            ⏳ Após o pagamento, envie o comprovante para <strong>openanalytics@gmail.com</strong>. O acesso é liberado em até 5 minutos.
-          </div>
-          <button class="btn-orange btn-block" style="margin-top:16px;" onclick="OA.processPayment('pix')">✅ Já realizei o pagamento Pix</button>
-        </div>
-
-        <div id="pay-boleto" class="hidden">
-          <div class="boleto-area">
-            <div style="font-size:40px;margin-bottom:12px;">🏦</div>
-            <div style="font-size:14px;font-weight:700;margin-bottom:8px;">Boleto Bancário</div>
-            <div style="font-size:13px;color:var(--gray2);margin-bottom:12px;">Vencimento em 3 dias úteis</div>
-            <div class="boleto-code">${boletoCode}</div>
-            <button onclick="navigator.clipboard.writeText('${boletoCode}');OA.toast('Código copiado!','success')" class="btn-ghost" style="width:100%;">📋 Copiar código</button>
-          </div>
-          <div style="margin-top:12px;padding:12px;background:rgba(255,109,0,0.08);border:1px solid rgba(255,109,0,0.2);border-radius:10px;font-size:13px;color:var(--gray2);">
-            ⚠️ O acesso é liberado após confirmação do pagamento do boleto (1-3 dias úteis).
-          </div>
-          <button class="btn-orange btn-block" style="margin-top:16px;" onclick="OA.processPayment('boleto')">🖨 Imprimir / Baixar Boleto</button>
-        </div>
-      </div>
-    `);
+  function openCheckoutInModal() {
+    // Garante que o usuário está logado
+    if (!state.user) {
+      switchModal ? switchModal(buildLoginHTML()) : showModal(buildLoginHTML());
+      bindLoginForm();
+      return;
+    }
+    if (!state.cart.length) { toast('Carrinho vazio. Adicione um produto primeiro.', 'info'); return; }
+    const html = buildCheckoutHTML();
+    const box = document.getElementById('modal-box');
+    if (box) {
+      switchModal(html);
+    } else {
+      showModal(html);
+    }
   }
+
+  function buildLoginHTML() {
+    return '<div class="modal-header">'
+      + '<div class="modal-title">🔐 Entre para continuar</div>'
+      + '<button class="modal-close" onclick="OA.closeModal()">✕</button>'
+      + '</div>'
+      + '<div class="modal-body">'
+      + '<p class="modal-sub">Faça login ou crie sua conta para finalizar a compra.</p>'
+      + '<div class="form-group"><label class="form-label">E-mail</label>'
+      + '<input class="form-input" id="login-email" type="email" placeholder="seu@email.com"></div>'
+      + '<div class="form-group"><label class="form-label">Senha</label>'
+      + '<input class="form-input" id="login-pass" type="password" placeholder="••••••••"></div>'
+      + '<div id="login-err" class="form-error hidden"></div>'
+      + '<button class="btn-primary btn-block" id="login-btn" onclick="OA.doLogin(true)">Entrar</button>'
+      + '<div class="switch-text" style="margin-top:16px;">Não tem conta? <a onclick="OA.openRegister()">Criar conta grátis</a></div>'
+      + '</div>';
+  }
+
+  function buildCheckoutHTML() {
+    if (!state.cart.length) return '';
+    var total = state.cart.reduce(function(s,i){ return s + (parseFloat(i.price)||0); }, 0);
+    var bank = store.get('bank') || {};
+    var pixKey = bank.pix || 'openanalytics@pagamento.com.br';
+    var boletoNum = Math.round(total*100).toString();
+    while(boletoNum.length < 8) boletoNum = '0' + boletoNum;
+    var boletoCode = '0001.23456 7890.12345 67890.12345 6 000' + boletoNum;
+    var t  = total.toFixed(2);
+    var t2 = (total/2).toFixed(2);
+    var t3 = (total/3).toFixed(2);
+    var itemsHTML = state.cart.map(function(i){
+      return '<div class="order-row"><span>'+(i.emoji||'📦')+' '+i.name+'</span><span>R$ '+(parseFloat(i.price)||0).toFixed(2)+'</span></div>';
+    }).join('');
+    var div = document.createElement('div');
+    div.innerHTML = [
+      '<div class="modal-header">',
+        '<div class="modal-title">💳 Finalizar compra</div>',
+        '<button class="modal-close" onclick="OA.closeModal()">✕</button>',
+      '</div>',
+      '<div class="modal-body">',
+        '<div class="order-summary">',
+          itemsHTML,
+          '<div class="order-row total"><span>Total</span><span class="price">R$ '+t+'</span></div>',
+        '</div>',
+        '<div class="payment-tabs" id="pay-tabs"></div>',
+        '<div id="pay-card">',
+          '<div class="form-group">',
+            '<label class="form-label">Número do cartão</label>',
+            '<input class="form-input" id="cc-num" placeholder="0000 0000 0000 0000" maxlength="19" oninput="OA.fmtCC(this)">',
+          '</div>',
+          '<div class="form-row">',
+            '<div class="form-group"><label class="form-label">Validade</label><input class="form-input" id="cc-exp" placeholder="MM/AA" maxlength="5" oninput="OA.fmtExp(this)"></div>',
+            '<div class="form-group"><label class="form-label">CVV</label><input class="form-input" id="cc-cvv" placeholder="000" maxlength="4" type="password"></div>',
+          '</div>',
+          '<div class="form-group"><label class="form-label">Nome no cartão</label><input class="form-input" id="cc-name" placeholder="NOME SOBRENOME" style="text-transform:uppercase"></div>',
+          '<div class="form-group"><label class="form-label">Parcelamento</label>',
+            '<select class="form-input" id="cc-parc">',
+              '<option>1x R$ '+t+' (à vista)</option>',
+              '<option>2x R$ '+t2+' sem juros</option>',
+              '<option>3x R$ '+t3+' sem juros</option>',
+            '</select>',
+          '</div>',
+          '<button class="btn-orange btn-block" id="pay-btn" onclick="OA.processPayment(\"card\")">🔒 Pagar R$ '+t+'</button>',
+        '</div>',
+        '<div id="pay-pix" class="hidden">',
+          '<div class="pix-area" style="text-align:center;">',
+            '<div style="font-size:72px;padding:16px 0;">⚡</div>',
+            '<div style="font-size:13px;color:var(--gray2);margin-bottom:8px;">Copie a chave Pix e pague no seu banco</div>',
+            '<div class="pix-key" id="pix-key-display">'+pixKey+'</div>',
+            '<button class="btn-primary btn-block" style="margin-top:8px;" id="copy-pix-btn">📋 Copiar chave Pix</button>',
+            '<div style="margin-top:12px;font-size:14px;">Valor: <strong style="color:var(--orange)">R$ '+t+'</strong></div>',
+          '</div>',
+          '<div style="margin-top:16px;padding:12px;background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.3);border-radius:10px;font-size:13px;color:#ffc107;">',
+            '⏳ Após pagar, envie o comprovante para openanalytics@gmail.com. Acesso liberado em até 5 minutos.',
+          '</div>',
+          '<button class="btn-orange btn-block" style="margin-top:16px;" onclick="OA.processPayment(\"pix\")">✅ Já paguei via Pix</button>',
+        '</div>',
+        '<div id="pay-boleto" class="hidden">',
+          '<div style="text-align:center;padding:12px 0;">',
+            '<div style="font-size:48px;">🏦</div>',
+            '<div style="font-size:15px;font-weight:700;margin:8px 0;">Boleto Bancário</div>',
+            '<div style="font-size:13px;color:var(--gray2);margin-bottom:12px;">Vencimento em 3 dias úteis</div>',
+            '<div class="boleto-code" id="boleto-code-display">'+boletoCode+'</div>',
+            '<button class="btn-ghost btn-block" id="copy-boleto-btn">📋 Copiar código de barras</button>',
+          '</div>',
+          '<div style="margin-top:12px;padding:12px;background:rgba(255,109,0,0.08);border:1px solid rgba(255,109,0,0.2);border-radius:10px;font-size:13px;color:var(--gray2);">',
+            '⚠️ O acesso é liberado após confirmação do pagamento (1 a 3 dias úteis).',
+          '</div>',
+          '<button class="btn-orange btn-block" style="margin-top:16px;" onclick="OA.processPayment(\"boleto\")">🖨 Gerar boleto</button>',
+        '</div>',
+      '</div>'
+    ].join('');
+
+    // Build tabs separately to avoid quote issues
+    var tabs = div.getElementById('pay-tabs');
+    var tabCard = document.createElement('button');
+    tabCard.className = 'pay-tab active';
+    tabCard.textContent = '💳 Cartão';
+    tabCard.onclick = function(){ OA.switchPayTab(this,'card'); };
+    var tabPix = document.createElement('button');
+    tabPix.className = 'pay-tab';
+    tabPix.textContent = '⚡ Pix';
+    tabPix.onclick = function(){ OA.switchPayTab(this,'pix'); };
+    var tabBoleto = document.createElement('button');
+    tabBoleto.className = 'pay-tab';
+    tabBoleto.textContent = '🏦 Boleto';
+    tabBoleto.onclick = function(){ OA.switchPayTab(this,'boleto'); };
+    if(tabs){ tabs.appendChild(tabCard); tabs.appendChild(tabPix); tabs.appendChild(tabBoleto); }
+
+    // Copy buttons
+    var copyPix = div.getElementById('copy-pix-btn');
+    if(copyPix){ copyPix.onclick = function(){ navigator.clipboard.writeText(pixKey).then(function(){ OA.toast('Chave Pix copiada!','success'); }); }; }
+    var copyBoleto = div.getElementById('copy-boleto-btn');
+    if(copyBoleto){ copyBoleto.onclick = function(){ navigator.clipboard.writeText(boletoCode).then(function(){ OA.toast('Código copiado!','success'); }); }; }
+
+    return div.innerHTML;
+  }
+  function openCheckout() {
+    if (!state.user) { openLogin(); return; }
+    if (!state.cart.length) { toast('Carrinho vazio.', 'info'); return; }
+    showModal(buildCheckoutHTML());
+  }
+
 
   function switchPayTab(btn, type) {
     document.querySelectorAll('.pay-tab').forEach(t => t.classList.remove('active'));
@@ -656,7 +711,7 @@ const OA = (() => {
     `);
   }
 
-  function doLogin() {
+  function doLogin(redirectToCheckout = false) {
     const email = document.getElementById('login-email')?.value.trim();
     const pass = document.getElementById('login-pass')?.value;
     const errEl = document.getElementById('login-err');
@@ -677,6 +732,10 @@ const OA = (() => {
       closeModal();
       renderNav();
       toast(`Bem-vindo, ${user.name.split(' ')[0]}! 👋`, 'success');
+      // Se tinha carrinho, abre checkout automaticamente
+      if (redirectToCheckout && state.cart.length > 0) {
+        setTimeout(() => openCheckoutInModal(), 300);
+      }
     }, 900);
   }
 
@@ -1063,23 +1122,56 @@ const OA = (() => {
      MODAL ENGINE
   ═══════════════════════════════════════════════ */
   function showModal(html) {
+    // Sempre reutiliza o overlay existente — nunca remove e recria
     let overlay = document.getElementById('modal-overlay');
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.className = 'modal-overlay';
       overlay.id = 'modal-overlay';
-      overlay.innerHTML = `<div class="modal" id="modal-box">${html}</div>`;
+      overlay.innerHTML = '<div class="modal" id="modal-box"></div>';
       document.body.appendChild(overlay);
-      overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
-    } else {
-      document.getElementById('modal-box').innerHTML = html;
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeModal();
+      });
     }
-    requestAnimationFrame(() => overlay.classList.add('open'));
+    const box = document.getElementById('modal-box');
+    box.innerHTML = html;
+    // Scroll sempre volta ao topo do modal
+    box.scrollTop = 0;
+    // Abre suavemente
+    requestAnimationFrame(function() {
+      overlay.classList.add('open');
+    });
+    // Impede scroll da página atrás
+    document.body.style.overflow = 'hidden';
   }
 
   function closeModal() {
     const overlay = document.getElementById('modal-overlay');
-    if (overlay) { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 300); }
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+    // Remove após animação
+    setTimeout(function() {
+      if (overlay && !overlay.classList.contains('open')) {
+        overlay.remove();
+      }
+    }, 350);
+  }
+
+  function switchModal(html) {
+    // Troca o conteúdo do modal sem fechar — transição suave
+    const box = document.getElementById('modal-box');
+    if (!box) { showModal(html); return; }
+    box.style.opacity = '0';
+    box.style.transform = 'scale(0.97)';
+    box.style.transition = 'opacity 0.15s ease, transform 0.15s ease';
+    setTimeout(function() {
+      box.innerHTML = html;
+      box.scrollTop = 0;
+      box.style.opacity = '1';
+      box.style.transform = 'scale(1)';
+    }, 150);
   }
 
   /* ─── TOAST ─────────────────────────────────── */
@@ -1119,11 +1211,11 @@ const OA = (() => {
   /* ─── PUBLIC API ────────────────────────────── */
   return {
     init, go, openLogin, openRegister, doLogin, doRegister, logout,
-    openProduct, addToCart, addToCartAndBuy, removeFromCart, openCart,
+    openProduct, addToCart, addToCartAndBuy, removeFromCart, openCart, openCheckoutInModal,
     openCheckout, switchPayTab, processPayment, fmtCC, fmtExp,
     openAddProduct, saveNewProduct, toggleProduct, deleteProduct,
     openBankSettings, saveBankSettings, downloadFile,
-    showModal, closeModal, toast,
+    showModal, closeModal, switchModal, buildLoginHTML, buildCheckoutHTML, toast,
   };
 })();
 
